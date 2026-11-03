@@ -1,0 +1,51 @@
+name: Project-scoped connector
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'integrations/project-scoped-mcp/**'
+      - '.github/workflows/project-scoped-connector.yml'
+permissions:
+  contents: read
+jobs:
+  fixture-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm test
+        working-directory: integrations/project-scoped-mcp
+      - run: npm run lint
+        working-directory: integrations/project-scoped-mcp
+  sql-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      database:
+        image: pgvector/pgvector@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Bootstrap ephemeral test database
+        run: psql -X -v ON_ERROR_STOP=1 -f test/bootstrap.sql
+        working-directory: integrations/project-scoped-mcp
+      - name: Exercise additive SQL and isolation fixtures
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f schema.sql
+          psql -X -v ON_ERROR_STOP=1 -f test/database.sql
+        working-directory: integrations/project-scoped-mcp

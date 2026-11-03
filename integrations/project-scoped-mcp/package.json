@@ -1,0 +1,11 @@
+{
+  "name": "ob1-project-scoped-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test --experimental-test-coverage --test-coverage-include=src/*.js --test-coverage-lines=85 --test-coverage-branches=85 --test-coverage-functions=85 test/*.test.js",
+    "lint": "node --check src/connector.js && node --check src/supabase.js && node --check src/mcp.js"
+  }
+}
