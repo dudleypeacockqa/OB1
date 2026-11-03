@@ -12,6 +12,13 @@ INSERT INTO public.ob1_scoped_reviews VALUES
 INSERT INTO public.ob1_scoped_embeddings VALUES
  ('00000000-0000-4000-8000-000000000031','00000000-0000-4000-8000-000000000001','fixture-a',encode(digest('Reviewed fixture one.','sha256'),'hex'),'fixture-space-v1',('['||'1,'||repeat('0,',382)||'0]')::public.vector(384)),
  ('00000000-0000-4000-8000-000000000032','00000000-0000-4000-8000-000000000001','fixture-a',encode(digest('Reviewed fixture two.','sha256'),'hex'),'fixture-space-v1',('['||'1,'||repeat('0,',382)||'0]')::public.vector(384));
+-- Seed a real B row so denial cannot pass merely because B has no data.
+INSERT INTO public.ob1_scoped_reviews VALUES
+ ('00000000-0000-4000-8000-000000000023','00000000-0000-4000-8000-000000000002','fixture-b','fixture-b-source',repeat('b',64),encode(digest('Project B fixture.','sha256'),'hex'),'fixture/b','fixture-space-v1','00000000-0000-4000-8000-000000000012');
+INSERT INTO public.ob1_scoped_records VALUES
+ ('00000000-0000-4000-8000-000000000041','00000000-0000-4000-8000-000000000002','fixture-b','fixture-b-source','00000000-0000-4000-8000-000000000042',1);
+INSERT INTO public.ob1_scoped_versions VALUES
+ ('00000000-0000-4000-8000-000000000042','00000000-0000-4000-8000-000000000041','00000000-0000-4000-8000-000000000002','fixture-b','Project B fixture.',encode(digest('Project B fixture.','sha256'),'hex'),repeat('b',64),'fixture/b','00000000-0000-4000-8000-000000000023','fixture-space-v1',('['||'1,'||repeat('0,',382)||'0]')::public.vector(384),null,now(),'00000000-0000-4000-8000-000000000012');
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000011';
 DO $$
@@ -50,8 +57,21 @@ BEGIN
   RAISE EXCEPTION 'stale write accepted';
  EXCEPTION WHEN SQLSTATE '40001' THEN NULL; END;
  BEGIN
+  PERFORM public.ob1_scoped_fetch(p || '{"id":"00000000-0000-4000-8000-000000000041"}'::jsonb);
+  RAISE EXCEPTION 'known B ID leaked through A scope';
+ EXCEPTION WHEN no_data_found THEN NULL; END;
+ IF EXISTS(SELECT 1 FROM public.ob1_scoped_versions WHERE version_id='00000000-0000-4000-8000-000000000042') THEN RAISE EXCEPTION 'RLS leaked B'; END IF;
+ BEGIN
   PERFORM public.ob1_scoped_list(p || '{"projectId":"00000000-0000-4000-8000-000000000002"}'::jsonb);
   RAISE EXCEPTION 'cross-project read accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM ob1_scoped_internal.commit_version(p || '{"projectId":"00000000-0000-4000-8000-000000000002"}'::jsonb);
+  RAISE EXCEPTION 'private function bypass accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  UPDATE public.ob1_scoped_versions SET content='forged';
+  RAISE EXCEPTION 'immutable history changed';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
   PERFORM public.ob1_scoped_fetch(p || '{"workstream":"other"}'::jsonb);
@@ -62,6 +82,10 @@ BEGIN
   RAISE EXCEPTION 'direct write accepted';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  IF (SELECT count(*) FROM public.ob1_scoped_versions) <> 2 THEN RAISE EXCEPTION 'failed transaction leaked row'; END IF;
+END $$;
+SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-000000000012';
+DO $$ BEGIN
+ IF (SELECT count(*) FROM public.ob1_scoped_versions) <> 1 THEN RAISE EXCEPTION 'B fixture or reverse RLS invalid'; END IF;
 END $$;
 RESET ROLE;
 SET LOCAL ROLE anon;
