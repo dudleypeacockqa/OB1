@@ -1,0 +1,12 @@
+{
+  "name": "Project-scoped MCP contracts",
+  "description": "Host-independent reviewed-memory connector with injected approved embeddings, scoped Supabase transactions and model-free isolation fixtures.",
+  "category": "integrations",
+  "author": { "name": "Dudley Peacock", "github": "dudleypeacockqa" },
+  "version": "0.1.0",
+  "requires": { "open_brain": true, "services": ["Supabase", "Separately approved external embedding host"], "tools": ["Node.js 22+", "PostgreSQL 17 with pgvector for SQL tests"] },
+  "tags": ["project-scope", "mcp", "provenance", "idempotency", "supabase"],
+  "difficulty": "advanced",
+  "estimated_time": "Review before activation",
+  "created": "2026-11-03"
+}
