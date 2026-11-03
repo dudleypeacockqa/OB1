@@ -132,7 +132,7 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN RAISE invalid_parameter_value USING MESSAGE='VECTOR_INVALID'; END;
  IF NOT EXISTS(SELECT 1 FROM public.ob1_scoped_embeddings e WHERE e.receipt_id=(p->>'embeddingReceiptId')::uuid
   AND e.project_id=(p->>'projectId')::uuid AND e.workstream=p->>'workstream' AND e.content_hash=p->>'contentHash'
-  AND e.space_id=p->>'spaceId' AND e.embedding=vec) THEN
+  AND e.space_id=p->>'spaceId' AND e.embedding OPERATOR(public.=) vec) THEN
   RAISE invalid_parameter_value USING MESSAGE='EMBEDDING_RECEIPT_REQUIRED';
  END IF;
  SELECT * INTO r FROM public.ob1_scoped_records WHERE project_id=(p->>'projectId')::uuid AND workstream=p->>'workstream' AND knowledge_id=p->>'knowledgeId' FOR UPDATE;
