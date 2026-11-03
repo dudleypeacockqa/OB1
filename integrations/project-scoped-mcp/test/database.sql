@@ -4,7 +4,8 @@ INSERT INTO public.ob1_scoped_projects VALUES ('00000000-0000-4000-8000-00000000
 INSERT INTO public.ob1_scoped_members VALUES
  ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000011','writer'),
  ('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000012','writer'),
- ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000013','reviewer');
+ ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000013','reviewer'),
+ ('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000014','reviewer');
 INSERT INTO public.ob1_scoped_spaces VALUES ('fixture-space-v1',repeat('a',64),384);
 INSERT INTO public.ob1_scoped_reviews VALUES
  ('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000001','fixture-a','fixture-source',repeat('b',64),encode(digest('Reviewed fixture one.','sha256'),'hex'),'fixture/1','fixture-space-v1','00000000-0000-4000-8000-000000000013'),
@@ -14,7 +15,7 @@ INSERT INTO public.ob1_scoped_embeddings VALUES
  ('00000000-0000-4000-8000-000000000032','00000000-0000-4000-8000-000000000001','fixture-a',encode(digest('Reviewed fixture two.','sha256'),'hex'),'fixture-space-v1',('['||'1,'||repeat('0,',382)||'0]')::public.vector(384));
 -- Seed a real B row so denial cannot pass merely because B has no data.
 INSERT INTO public.ob1_scoped_reviews VALUES
- ('00000000-0000-4000-8000-000000000023','00000000-0000-4000-8000-000000000002','fixture-b','fixture-b-source',repeat('b',64),encode(digest('Project B fixture.','sha256'),'hex'),'fixture/b','fixture-space-v1','00000000-0000-4000-8000-000000000012');
+ ('00000000-0000-4000-8000-000000000023','00000000-0000-4000-8000-000000000002','fixture-b','fixture-b-source',repeat('b',64),encode(digest('Project B fixture.','sha256'),'hex'),'fixture/b','fixture-space-v1','00000000-0000-4000-8000-000000000014');
 INSERT INTO public.ob1_scoped_records VALUES
  ('00000000-0000-4000-8000-000000000041','00000000-0000-4000-8000-000000000002','fixture-b','fixture-b-source','00000000-0000-4000-8000-000000000042',1);
 INSERT INTO public.ob1_scoped_versions VALUES

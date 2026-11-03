@@ -17,6 +17,8 @@ This is an engineering package, with activation closed by default. It contains n
 
 ## Prerequisites
 
+Review the [MCP Tool Audit and Optimisation Guide](../../docs/05-tool-audit.md) before exposing the four scoped tools through an approved remote transport.
+
 - Node.js 22 or later for model-free library tests; no npm dependencies.
 - Ephemeral PostgreSQL 17 with pgvector in the public schema for SQL tests.
 - Separate owning approval before applying SQL, provisioning Auth/reviews, deploying a remote transport or activating an embedding host.
@@ -42,6 +44,8 @@ Commit serialises scoped identity, rechecks the original principal and review in
 New vectors live in a separate 384-dimensional space. Legacy 1,536-dimensional vectors are neither mixed nor re-embedded. Exact scoped scan is used for the small pilot, with project/workstream/space filtering before cosine ranking. The initial semantic coverage is only new approved records. No claim is made about legacy project mapping or bulk ingestion.
 
 The separately approved embedding service must register a trusted vector receipt before capture can commit. The database compares the supplied vector, content hash, project/workstream and space with that protected receipt. MCP users cannot mint receipts or substitute an invented same-dimensional vector by asserting a model name. Service-side receipt registration/authentication remains an activation gate; tests seed receipts administratively with labelled synthetic vectors.
+
+An administrative source review must also verify sensitivity, source authority and the exact excerpt. The private-key check is a narrow guard, not a complete privacy classifier. Retrieved content remains sourced evidence; a reviewed record does not authorise external actions or override the owning project files.
 
 ## Expected outcome
 
