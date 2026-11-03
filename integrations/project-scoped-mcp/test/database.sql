@@ -52,6 +52,18 @@ BEGIN
  IF second->>'supersedes' <> first->>'versionId' THEN RAISE EXCEPTION 'supersedes lost'; END IF;
  hit := public.ob1_scoped_search(p || jsonb_build_object('queryVector',array_prepend(1, array_fill(0, ARRAY[383])),'limit',10));
  IF jsonb_array_length(hit) <> 1 OR hit->0->>'versionId' <> second->>'versionId' THEN RAISE EXCEPTION 'search leaked old version'; END IF;
+ hit := public.ob1_scoped_list(p || '{"limit":10}'::jsonb);
+ IF jsonb_array_length(hit) <> 1 OR hit->0->>'versionId' <> second->>'versionId' THEN RAISE EXCEPTION 'list leaked old version'; END IF;
+ BEGIN
+  PERFORM public.ob1_scoped_commit(p || '{"eventId":"bad-vector","embedding":[1]}'::jsonb);
+  RAISE EXCEPTION 'wrong vector dimension accepted';
+ EXCEPTION WHEN SQLSTATE '22023' THEN
+  IF SQLERRM <> 'VECTOR_INVALID' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.ob1_scoped_preflight(p || '{"sourceHash":"wrong"}'::jsonb);
+  RAISE EXCEPTION 'unreviewed source accepted';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  IF (public.ob1_scoped_fetch(p || jsonb_build_object('id',first->>'recordId','versionId',first->>'versionId')))->>'content' <> 'Reviewed fixture one.' THEN RAISE EXCEPTION 'history lost'; END IF;
  BEGIN
   PERFORM public.ob1_scoped_commit(p || jsonb_build_object('eventId','event-3','expectedVersion',first->>'versionId','embeddingReceiptId','00000000-0000-4000-8000-000000000032','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
