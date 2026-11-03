@@ -29,7 +29,15 @@ BEGIN
  IF (public.ob1_scoped_preflight(p)->>'duplicate')::boolean THEN RAISE EXCEPTION 'unexpected duplicate'; END IF;
  first := public.ob1_scoped_commit(p || jsonb_build_object('embeddingReceiptId','00000000-0000-4000-8000-000000000031','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
  replay := public.ob1_scoped_commit(p || jsonb_build_object('embeddingReceiptId','00000000-0000-4000-8000-000000000031','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
- IF first <> replay OR (SELECT count(*) FROM public.ob1_scoped_versions) <> 1 THEN RAISE EXCEPTION 'duplicate mutated state'; END IF;
+ IF first->'version' <> replay->'version' OR first->>'duplicate' <> 'false' OR replay->>'duplicate' <> 'true' OR (SELECT count(*) FROM public.ob1_scoped_versions) <> 1 THEN RAISE EXCEPTION 'duplicate receipt invalid or mutated state'; END IF;
+ first := first->'version';
+ IF first->>'knowledgeId' <> 'fixture-source' OR first->>'reviewId' <> '00000000-0000-4000-8000-000000000021' OR first->>'sourceLocator' <> 'fixture/1' OR first->>'spaceDigest' <> repeat('a',64) THEN RAISE EXCEPTION 'render lost source identity'; END IF;
+ BEGIN
+  PERFORM public.ob1_scoped_preflight(p || '{"recordId":"00000000-0000-4000-8000-000000000041"}'::jsonb);
+  RAISE EXCEPTION 'wrong intended record accepted';
+ EXCEPTION WHEN SQLSTATE '22023' THEN
+  IF SQLERRM <> 'RECORD_ID_MISMATCH' THEN RAISE; END IF;
+ END;
  IF NOT (public.ob1_scoped_preflight(p)->>'duplicate')::boolean THEN RAISE EXCEPTION 'preflight missed duplicate'; END IF;
  BEGIN
   PERFORM public.ob1_scoped_preflight(p || jsonb_build_object('content','Reviewed fixture two.','contentHash',encode(digest('Reviewed fixture two.','sha256'),'hex'),'reviewId','00000000-0000-4000-8000-000000000022'));
@@ -49,6 +57,7 @@ BEGIN
   IF SQLERRM <> 'EMBEDDING_RECEIPT_REQUIRED' THEN RAISE; END IF;
  END;
  second := public.ob1_scoped_commit(p || jsonb_build_object('embeddingReceiptId','00000000-0000-4000-8000-000000000032','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
+ second := second->'version';
  IF second->>'supersedes' <> first->>'versionId' THEN RAISE EXCEPTION 'supersedes lost'; END IF;
  hit := public.ob1_scoped_search(p || jsonb_build_object('queryVector',array_prepend(1, array_fill(0, ARRAY[383])),'limit',10));
  IF jsonb_array_length(hit) <> 1 OR hit->0->>'versionId' <> second->>'versionId' THEN RAISE EXCEPTION 'search leaked old version'; END IF;

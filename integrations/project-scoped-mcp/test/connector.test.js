@@ -19,7 +19,7 @@ function harness(overrides = {}) {
     async commit(p) {
       if ((current?.versionId ?? null) !== p.expectedVersion) throw new Error('STALE_VERSION');
       const row = { ...p, recordId: 'record-1', versionId: `version-${versions.size + 1}`, reviewed: true, supersedes: current?.versionId ?? null };
-      versions.set(row.versionId, row); events.set(p.eventId, { payloadHash: p.payloadHash, versionId: row.versionId }); current = row; return row;
+      versions.set(row.versionId, row); events.set(p.eventId, { payloadHash: p.payloadHash, versionId: row.versionId }); current = row; return { duplicate: false, version: row };
     },
     async fetch(p) { return p.versionId ? versions.get(p.versionId) : current; },
     async search() { return current ? [current] : []; },
@@ -117,4 +117,39 @@ test('query, ID and limit bounds reject malformed requests', async () => {
   for (const query of ['', 2, 'x'.repeat(16001)]) await assert.rejects(h.connector.search({ query }), /INPUT_DENIED/);
   for (const limit of [0, 101, 1.5, '2']) await assert.rejects(h.connector.list({ limit }), /INPUT_DENIED/);
   await assert.rejects(h.connector.fetch({ id: '' }), /INPUT_DENIED/);
+});
+test('capture and read-back reject same-hash lineage and record swaps', async () => {
+  for (const phase of ['commit','fetch']) for (const field of ['sourceLocator','knowledgeId','reviewId','spaceDigest']) {
+    const h = harness(); const commit = h.store.commit;
+    const patch = { [field]: field === 'spaceDigest' ? 'b'.repeat(64) : 'unrelated' };
+    if (phase === 'commit') h.store.commit = async p => { const result = await commit(p); return { ...result, version: { ...result.version, ...patch } }; };
+    else { const fetch = h.store.fetch; h.store.fetch = async p => ({ ...await fetch(p), ...patch }); }
+    await assert.rejects(h.connector.capture(input()), /READBACK_FAILED/);
+  }
+  const h = harness(); const fetch = h.store.fetch;
+  h.store.fetch = async p => ({ ...await fetch(p), recordId: 'unrelated-record' });
+  await assert.rejects(h.connector.capture(input()), /READBACK_FAILED/);
+});
+test('an explicit capture record identity cannot be swapped', async () => {
+  const h = harness();
+  await assert.rejects(h.connector.capture({ ...input(), recordId: 'unrelated-record' }), /READBACK_FAILED/);
+});
+test('fetch binds the requested record ID, not only project scope', async () => {
+  const h = harness(); await h.connector.capture(input());
+  await assert.rejects(h.connector.fetch({ id: 'unrelated-record' }), /READBACK_FAILED/);
+});
+test('concurrent preflight misses use authoritative commit replay flags', async () => {
+  const h = harness(); let arrivals = 0; let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  h.store.preflight = async () => { arrivals++; if (arrivals === 2) release(); await barrier; return { duplicate: false }; };
+  const commit = h.store.commit;
+  h.store.commit = async p => {
+    const existing = h.events.get(p.eventId);
+    if (existing) return { duplicate: true, version: h.versions.get(existing.versionId) };
+    return commit(p);
+  };
+  const result = await Promise.all([h.connector.capture(input()), h.connector.capture(input())]);
+  assert.deepEqual(result.map(row => row.duplicate).sort(), [false,true]);
+  assert.equal(result[0].versionId, result[1].versionId); assert.equal(h.versions.size, 1);
+  assert.equal(h.count(), 2, 'overlap may embed twice; exactly-once storage is the database guarantee');
 });

@@ -12,6 +12,7 @@ This additive integration implements a reviewed project-scoped contract; no matc
 | Preserve immutable source versions | Unit supersession/stale-write tests; SQL old/current/history checks |
 | Reject mixed or invented vectors | Unit model digest/space/dimension/finite checks; database protected receipt check |
 | Store then read back | Connector checks content/source/model/scope against fetched version; absent/mismatched read-back fails |
+| Complete lineage and commit receipt | Same-hash source-locator/knowledge/review swaps and wrong record ID are rejected; concurrent preflight misses use authoritative commit replay flags |
 | Keep legacy corpus intact | Schema adds only prefixed objects; no legacy table/RPC/queue write path |
 
 Given a reviewed fixture in project A, when the event is replayed, the original version is returned before another embedding request. Given an A-only principal, when a known project B ID is requested, the database denies access. Given a newer accepted version, current search returns it and authorised history retains the old version.
@@ -21,6 +22,8 @@ Given a reviewed fixture in project A, when the event is replayed, the original 
 Run `npm test` and `npm run lint` here. `npm audit --offline --audit-level=high` checks the dependency-free lock without installing packages. The dedicated CI workflow executes the same tests on Node.js 22 and runs the SQL fixtures against a digest-pinned ephemeral PostgreSQL/pgvector image. Existing OB1 mechanical and Markdown checks still apply.
 
 The database tests run only in disposable CI storage, with fake identities and administratively seeded synthetic vector receipts. They are not production migrations, real authentication tests or semantic paraphrase evidence. Unit coverage includes all new JavaScript source files. SQL behaviour is covered by the database fixture, not included in JavaScript coverage percentages.
+
+The concurrency unit fixture deliberately lets both callers miss preflight, requires one stable stored version and flags `[false, true]`, and records two embedding requests. That is an explicit boundary: preflight is an optimisation, not an exactly-once external embedding lock. SQL fixtures independently verify that creation and replay return authoritative false/true receipts with the complete rendered lineage.
 
 ## Remaining release gates
 

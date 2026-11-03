@@ -1,5 +1,5 @@
 const properties = {
-  content: { type: 'string' }, query: { type: 'string' }, id: { type: 'string' },
+  content: { type: 'string' }, query: { type: 'string' }, id: { type: 'string' }, recordId: { type: 'string' },
   knowledgeId: { type: 'string' }, eventId: { type: 'string' }, sourceHash: { type: 'string' },
   sourceLocator: { type: 'string' }, reviewId: { type: 'string' },
   expectedVersion: { type: ['string', 'null'] }, sensitivity: { const: 'non_sensitive' },

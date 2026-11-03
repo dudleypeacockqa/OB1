@@ -79,7 +79,8 @@ END $$;
 
 CREATE FUNCTION ob1_scoped_internal.render(v public.ob1_scoped_versions) RETURNS jsonb
 LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
- SELECT jsonb_build_object('recordId',v.record_id,'versionId',v.version_id,'projectId',v.project_id,'workstream',v.workstream,'content',v.content,'contentHash',v.content_hash,'sourceHash',v.source_hash,'sourceLocator',v.source_locator,'spaceId',v.space_id,'reviewed',true,'supersedes',v.supersedes)
+ SELECT jsonb_build_object('recordId',v.record_id,'versionId',v.version_id,'projectId',v.project_id,'workstream',v.workstream,'knowledgeId',r.knowledge_id,'reviewId',v.review_id,'content',v.content,'contentHash',v.content_hash,'sourceHash',v.source_hash,'sourceLocator',v.source_locator,'spaceId',v.space_id,'spaceDigest',s.digest,'reviewed',true,'supersedes',v.supersedes)
+ FROM public.ob1_scoped_records r JOIN public.ob1_scoped_spaces s ON s.space_id=v.space_id WHERE r.record_id=v.record_id
 $$;
 
 CREATE FUNCTION ob1_scoped_internal.payload_hash(p jsonb) RETURNS text
@@ -91,6 +92,10 @@ CREATE FUNCTION ob1_scoped_internal.validate_capture(p jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
  PERFORM ob1_scoped_internal.authorise(p,true);
+ IF p->>'recordId' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.ob1_scoped_records r WHERE r.record_id::text=p->>'recordId'
+  AND r.project_id=(p->>'projectId')::uuid AND r.workstream=p->>'workstream' AND r.knowledge_id=p->>'knowledgeId') THEN
+  RAISE invalid_parameter_value USING MESSAGE='RECORD_ID_MISMATCH';
+ END IF;
  IF p->>'sensitivity' IS DISTINCT FROM 'non_sensitive' OR
  coalesce(length(p->>'content'),0) NOT BETWEEN 1 AND 16000 OR
  coalesce(p->>'eventId','')='' OR coalesce(p->>'knowledgeId','')='' OR
@@ -125,7 +130,7 @@ BEGIN
  PERFORM ob1_scoped_internal.validate_capture(p);
  PERFORM pg_advisory_xact_lock(hashtextextended((p->>'projectId')||'/'||(p->>'workstream')||'/'||(p->>'knowledgeId'),0));
  prior:=public.ob1_scoped_preflight(p);
- IF (prior->>'duplicate')::boolean THEN RETURN prior->'version'; END IF;
+ IF (prior->>'duplicate')::boolean THEN RETURN prior; END IF;
  BEGIN
   vec:=(p->'embedding')::text::public.vector(384);
   IF public.vector_norm(vec)=0 THEN RAISE invalid_parameter_value USING MESSAGE='VECTOR_INVALID'; END IF;
@@ -147,7 +152,7 @@ BEGIN
  INSERT INTO public.ob1_scoped_versions(version_id,record_id,project_id,workstream,content,content_hash,source_hash,source_locator,review_id,space_id,embedding,supersedes,created_by)
  VALUES(vid,r.record_id,r.project_id,r.workstream,p->>'content',p->>'contentHash',p->>'sourceHash',p->>'sourceLocator',(p->>'reviewId')::uuid,p->>'spaceId',vec,CASE WHEN r.current_version=vid THEN NULL ELSE r.current_version END,auth.uid()) RETURNING * INTO v;
  INSERT INTO public.ob1_scoped_events VALUES(r.project_id,r.workstream,p->>'eventId',ob1_scoped_internal.payload_hash(p),vid);
- RETURN ob1_scoped_internal.render(v);
+ RETURN jsonb_build_object('duplicate',false,'version',ob1_scoped_internal.render(v));
 END $$;
 
 CREATE FUNCTION public.ob1_scoped_commit(p_request jsonb) RETURNS jsonb
