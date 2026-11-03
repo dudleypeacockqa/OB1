@@ -29,9 +29,9 @@ BEGIN
  IF (public.ob1_scoped_preflight(p)->>'duplicate')::boolean THEN RAISE EXCEPTION 'unexpected duplicate'; END IF;
  first := public.ob1_scoped_commit(p || jsonb_build_object('embeddingReceiptId','00000000-0000-4000-8000-000000000031','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
  replay := public.ob1_scoped_commit(p || jsonb_build_object('embeddingReceiptId','00000000-0000-4000-8000-000000000031','embedding',array_prepend(1, array_fill(0, ARRAY[383]))));
- IF first->'version' <> replay->'version' OR first->>'duplicate' <> 'false' OR replay->>'duplicate' <> 'true' OR (SELECT count(*) FROM public.ob1_scoped_versions) <> 1 THEN RAISE EXCEPTION 'duplicate receipt invalid or mutated state'; END IF;
+ IF first->'version' IS DISTINCT FROM replay->'version' OR first->>'duplicate' IS DISTINCT FROM 'false' OR replay->>'duplicate' IS DISTINCT FROM 'true' OR (SELECT count(*) FROM public.ob1_scoped_versions) <> 1 THEN RAISE EXCEPTION 'duplicate receipt invalid or mutated state'; END IF;
  first := first->'version';
- IF first->>'knowledgeId' <> 'fixture-source' OR first->>'reviewId' <> '00000000-0000-4000-8000-000000000021' OR first->>'sourceLocator' <> 'fixture/1' OR first->>'spaceDigest' <> repeat('a',64) THEN RAISE EXCEPTION 'render lost source identity'; END IF;
+ IF first->>'knowledgeId' IS DISTINCT FROM 'fixture-source' OR first->>'reviewId' IS DISTINCT FROM '00000000-0000-4000-8000-000000000021' OR first->>'sourceLocator' IS DISTINCT FROM 'fixture/1' OR first->>'spaceDigest' IS DISTINCT FROM repeat('a',64) THEN RAISE EXCEPTION 'render lost source identity'; END IF;
  BEGIN
   PERFORM public.ob1_scoped_preflight(p || '{"recordId":"00000000-0000-4000-8000-000000000041"}'::jsonb);
   RAISE EXCEPTION 'wrong intended record accepted';
