@@ -18,3 +18,42 @@ test('invalid protocol, method and tool return structured errors',async()=>{
   for (const msg of [null,{}, {id:1,method:'tools/list'}, {jsonrpc:'2.0',id:1,method:'missing'}, {jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'missing'}}, {jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'future'}}]) assert.ok((await h(msg)).error);
   assert.deepEqual((await h({jsonrpc:'2.0',id:1,method:'ping'})).result,{});
 });
+
+// Tool annotations are part of the owning contribution contract. Listing must
+// remain descriptive; actual calls must still reach only the named handler.
+async function assertAnnotatedDispatch(toolName, method, args, expectedAnnotations) {
+  const calls = [];
+  const connector = Object.fromEntries(['capture', 'search', 'fetch', 'list'].map(name => [name, async value => {
+    calls.push({ method: name, args: value });
+    return { handledBy: name };
+  }]));
+  const handle = createMcpHandler(connector);
+  const listed = await handle({ jsonrpc: '2.0', id: 10, method: 'tools/list' });
+  const tool = listed.result.tools.find(value => value.name === toolName);
+  assert.ok(tool, `${toolName} must remain advertised`);
+  assert.deepEqual(tool.annotations, expectedAnnotations);
+  assert.deepEqual(calls, [], 'listing metadata must not invoke a handler');
+  const called = await handle({ jsonrpc: '2.0', id: 11, method: 'tools/call', params: { name: toolName, arguments: args } });
+  assert.equal(called.result.isError, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, method);
+  assert.equal(calls[0].args, args, 'metadata must not rewrite the existing call arguments');
+  assert.deepEqual(JSON.parse(called.result.content[0].text), { handledBy: method });
+}
+
+test('capture advertises a bounded non-destructive write and retains capture dispatch', async () => {
+  await assertAnnotatedDispatch('capture_thought', 'capture', { content: 'synthetic contract fixture' },
+    { readOnlyHint: false, openWorldHint: false, destructiveHint: false });
+});
+
+test('search advertises read-only semantics and retains search dispatch', async () => {
+  await assertAnnotatedDispatch('search_thoughts', 'search', { query: 'synthetic contract fixture' }, { readOnlyHint: true });
+});
+
+test('fetch advertises read-only semantics and retains fetch dispatch', async () => {
+  await assertAnnotatedDispatch('fetch', 'fetch', { id: 'synthetic-record' }, { readOnlyHint: true });
+});
+
+test('list advertises read-only semantics and retains list dispatch', async () => {
+  await assertAnnotatedDispatch('list_thoughts', 'list', { limit: 2 }, { readOnlyHint: true });
+});

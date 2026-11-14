@@ -22,7 +22,8 @@ export function createMcpHandler(connector) {
       return result({ protocolVersion: message.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'open-brain-scoped', version: '0.1.0' } });
     }
     if (message.method === 'ping') return result({});
-    if (message.method === 'tools/list') return result({ tools: specs.map(([name, , required]) => ({ name,
+    if (message.method === 'tools/list') return result({ tools: specs.map(([name, method, required]) => ({ name,
+      annotations: method === 'capture' ? { readOnlyHint: false, openWorldHint: false, destructiveHint: false } : { readOnlyHint: true },
       description: 'Reviewed project-scoped OB1 operation. Scope and embedding approval are bound by the host.',
       inputSchema: { type: 'object', properties, required, additionalProperties: false } })) });
     if (message.method !== 'tools/call') return error(-32601, 'Method not found');
