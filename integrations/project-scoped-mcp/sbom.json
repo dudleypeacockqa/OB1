@@ -1,0 +1,15 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "library",
+      "name": "ob1-project-scoped-mcp",
+      "version": "0.1.0",
+      "description": "Dependency-free source integration under the repository licence; Node.js built-ins only. No model artefact or inference runtime included."
+    }
+  },
+  "components": [],
+  "dependencies": []
+}
